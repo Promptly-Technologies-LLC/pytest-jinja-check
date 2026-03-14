@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.2 (2026-03-14)
+
+### Bug Fixes
+
+- Subtract set variables from undeclared variables for all templates
+  ([`e8418ad`](https://github.com/Promptly-Technologies-LLC/pytest-jinja-check/commit/e8418ad337f72ee31f8d34362ed553ebaad048a9))
+
+
 ## v1.0.1 (2026-03-14)
 
 ### Bug Fixes
