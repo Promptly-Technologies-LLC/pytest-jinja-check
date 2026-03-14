@@ -1,66 +1,137 @@
-# Template Documentation Tools
+# pytest-jinja-check
 
-This project includes tools for testing and documenting Jinja2 templates used in the FastAPI application. Sort of accidentally created these in the course of another project, because I was frustrated by the lack of tooling to enforce that the context variables expected by Jinja2 templates matched the variables actually being passed in.
+A pytest plugin that lints Jinja2 templates used in FastAPI applications. Catches common issues at test time:
 
-## Features
+1. **Syntax validation** — templates parse without errors
+2. **Hardcoded route detection** — `href="/foo"` should be `url_for('foo')`
+3. **Endpoint validation** — `url_for('endpoint')` references actually exist in your app
+4. **Context variable checking** — routes pass all variables their templates need
 
-1. **Syntax Validation**: Tests that all templates have valid Jinja2 syntax.
-2. **Hardcoded Route Detection**: Ensures that all routes in templates use `url_for()` instead of hardcoded paths.
-3. **Variable Extraction**: Identifies all required context variables for each template.
-4. **Documentation Generation**: Creates a comprehensive markdown file documenting the required variables for each template.
-
-## Running the Tests
-
-To run the template tests:
+## Installation
 
 ```bash
-uv run pytest tests/test_templates.py
+pip install pytest-jinja-check
 ```
 
-## Generating Documentation
-
-To generate documentation for all templates:
+Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv run python scripts/generate_template_docs.py [output_file]
+uv add pytest-jinja-check
 ```
 
-By default, this will create a file named `template_variables.md` in the project root.
+For endpoint validation against a live FastAPI app, install with the `fastapi` extra:
 
-## Understanding the Documentation
+```bash
+pip install "pytest-jinja-check[fastapi]"
+# or
+uv add "pytest-jinja-check[fastapi]"
+```
 
-The generated documentation is organized by directory and includes:
+## Quick start
 
-- A table of contents for easy navigation
-- A section for each template directory
-- For each template:
-  - The template path
-  - A list of required context variables
+The plugin auto-registers with pytest via entry points. Add configuration to your `pyproject.toml`:
 
-This documentation is valuable for developers who need to work with the templates, as it clearly shows what variables need to be provided when rendering each template.
+```toml
+[tool.pytest-jinja-check]
+template_dir = "templates"
+python_dir = "app"
+```
 
-## How It Works
+Then write tests using the provided fixtures:
 
-The template analysis works by:
+```python
+# tests/test_templates.py
 
-1. Using Jinja2's AST parser to extract undeclared variables from each template
-2. Checking template syntax by attempting to parse each template
-3. Using regular expressions to detect hardcoded routes
-4. Organizing the extracted information into a readable markdown format
+def test_template_syntax(template_syntax_errors):
+    assert not template_syntax_errors, "\n".join(str(e) for e in template_syntax_errors)
 
-## Extending the Documentation
+def test_no_hardcoded_routes(hardcoded_routes):
+    assert not hardcoded_routes, "\n".join(str(e) for e in hardcoded_routes)
 
-To add descriptions for the variables in the documentation:
+def test_context_variables(missing_context_variables):
+    assert not missing_context_variables, "\n".join(
+        str(e) for e in missing_context_variables
+    )
 
-1. Edit the `generate_template_documentation` function in `tests/test_templates.py`
-2. Add a dictionary mapping variable names to descriptions
-3. Use these descriptions when generating the markdown table
+def test_url_for_endpoints(validate_endpoints):
+    from myapp.main import app
+    errors = validate_endpoints(app)
+    assert not errors, "\n".join(str(e) for e in errors)
+```
 
-## Future Improvements
+Run your tests as usual:
 
-Potential improvements to the template testing and documentation:
+```bash
+pytest
+```
 
-1. Add a way to test template rendering with mock data
-2. Integrate with FastAPI's route documentation
-3. Add type information for each variable
-4. Generate HTML documentation with interactive features 
+## Fixtures
+
+All analysis fixtures are **session-scoped** (run once per test session).
+
+| Fixture | Returns | Description |
+| --- | --- | --- |
+| `template_linter_config` | `LinterConfig` | Resolved configuration |
+| `template_variables` | `dict[str, TemplateInfo]` | Template name -> extracted variables (with inheritance) |
+| `route_contexts` | `list[RouteContext]` | All `TemplateResponse` calls found via AST |
+| `template_syntax_errors` | `list[LintError]` | Templates that fail to parse |
+| `hardcoded_routes` | `list[LintError]` | Hardcoded URLs that should use `url_for()` |
+| `missing_context_variables` | `list[LintError]` | Routes missing required template variables |
+| `validate_endpoints` | `callable(app) -> list[LintError]` | Factory: validates `url_for()` refs against a live app |
+
+## Configuration
+
+All settings in `[tool.pytest-jinja-check]` in your `pyproject.toml`:
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `template_dir` | `"templates"` | Template directory relative to project root |
+| `python_dir` | `"."` | Directory to scan for Python route files |
+| `route_file_patterns` | `["**/*.py"]` | Glob patterns for route files |
+| `ignore_variables` | `["request", "url_for", ...]` | Variables to skip (framework-provided) |
+| `allowed_url_prefixes` | `["#", "http://", ...]` | URL prefixes that aren't hardcoded routes |
+
+You can also pass `--template-lint-config <path>` to pytest to specify a different directory containing `pyproject.toml`.
+
+## Programmatic API
+
+The analysis functions can also be used outside of pytest:
+
+```python
+from pytest_jinja_check import (
+    analyze_all_templates,
+    check_syntax,
+    check_hardcoded_routes,
+    check_context_variables,
+    validate_url_for_references,
+    extract_all_route_contexts,
+)
+from pathlib import Path
+
+# Analyze templates
+templates = analyze_all_templates(Path("templates"))
+for name, info in templates.items():
+    print(f"{name}: needs {info.variables}")
+
+# Find issues
+syntax_errors = check_syntax(Path("templates"))
+hardcoded = check_hardcoded_routes(Path("templates"))
+routes = extract_all_route_contexts(Path("app"))
+missing = check_context_variables(Path("templates"), routes)
+```
+
+## How it works
+
+- **Template analysis** uses `jinja2.meta.find_undeclared_variables()` on parsed ASTs, recursively resolving `{% extends %}` to capture inherited variable requirements.
+- **Route analysis** uses Python's `ast` module to find `TemplateResponse(...)` calls and extract template names and context dict keys. Handles both the old positional API and newer keyword API.
+- **Endpoint validation** introspects a live FastAPI `app.routes` to get registered endpoint names.
+
+### Known limitations
+
+- Template variables from dynamic `{% extends variable %}` can't be resolved.
+- Context dicts built outside the `TemplateResponse(...)` call (e.g., `ctx = {...}; TemplateResponse("t.html", ctx)`) are flagged as dynamic and skipped rather than producing false positives.
+- The variable union from template inheritance may over-report when a child block completely replaces a parent block that used a variable.
+
+## License
+
+MIT
