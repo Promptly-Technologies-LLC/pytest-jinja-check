@@ -56,6 +56,13 @@ class TestAnalyzeTemplate:
         # Real context variables should still be detected
         assert "title" in info.variables  # from parent, outside any block
 
+    def test_set_in_if_in_for_not_reported_as_missing(self, templates_dir):
+        """{% set %} inside {% if %} inside {% for %} should not be a false positive."""
+        info = analyze_template("set_in_if_in_for.html", templates_dir)
+        assert "x" not in info.variables
+        # The real context variable should still be detected
+        assert "roles" in info.variables
+
     def test_aliased_macro_import_not_in_variables(self, templates_dir):
         info = analyze_template("uses_macro_alias.html", templates_dir)
         assert "logo" not in info.variables

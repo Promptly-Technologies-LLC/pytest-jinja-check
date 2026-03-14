@@ -95,7 +95,7 @@ def analyze_template(
     source = source_path.read_text()
     ast = env.parse(source)
 
-    variables = meta.find_undeclared_variables(ast) - _get_imported_names(ast)
+    variables = meta.find_undeclared_variables(ast) - _get_imported_names(ast) - _get_set_variable_names(ast)
     parent_name = _get_parent_template(ast)
     url_for_calls = _extract_url_for_calls(ast)
 
