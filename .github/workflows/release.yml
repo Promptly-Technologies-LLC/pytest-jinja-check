@@ -69,6 +69,11 @@ jobs:
           tag: "false"
           changelog: "true"
           vcs_release: "false"
+          build: "false"
+
+      - name: Build package
+        if: steps.release.outputs.released == 'true'
+        run: uv build
 
       - name: Commit and push version changes
         if: steps.release.outputs.released == 'true'

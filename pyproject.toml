@@ -58,5 +58,5 @@ select = ["E", "F", "I"]
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-build_command = "uv build"
+build_command = "python -m build"
 commit_message = "chore: release {version}"
