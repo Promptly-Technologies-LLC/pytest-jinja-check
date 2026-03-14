@@ -41,6 +41,19 @@ class TestAnalyzeTemplate:
         assert "title" in info.variables
         assert info.parent_template is None
 
+    def test_macro_import_not_in_variables(self, templates_dir):
+        info = analyze_template("uses_macro.html", templates_dir)
+        assert "render_logo" not in info.variables
+        # Real context variables should still be detected
+        assert "heading" in info.variables
+        assert "title" in info.variables  # inherited from base.html
+
+    def test_aliased_macro_import_not_in_variables(self, templates_dir):
+        info = analyze_template("uses_macro_alias.html", templates_dir)
+        assert "logo" not in info.variables
+        assert "render_logo" not in info.variables
+        assert "title" in info.variables  # inherited from base.html
+
 
 class TestAnalyzeAllTemplates:
     def test_finds_all_templates(self, templates_dir):

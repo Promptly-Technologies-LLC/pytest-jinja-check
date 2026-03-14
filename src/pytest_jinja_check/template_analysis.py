@@ -25,6 +25,23 @@ def _get_parent_template(ast: nodes.Template) -> Optional[str]:
     return None
 
 
+def _get_imported_names(ast: nodes.Template) -> set[str]:
+    """Extract names brought into scope by {% from ... import %} statements.
+
+    Handles both plain imports (``import foo``) and aliased imports
+    (``import foo as bar`` — the *local* alias is what matters).
+    """
+    names: set[str] = set()
+    for node in ast.find_all(nodes.FromImport):
+        for entry in node.names:
+            if isinstance(entry, tuple):
+                # aliased: {% from '...' import original as alias %}
+                names.add(entry[1])
+            else:
+                names.add(entry)
+    return names
+
+
 def _extract_url_for_calls(ast: nodes.Template) -> list[tuple[str, int]]:
     """Extract url_for('endpoint') calls from a template AST.
 
@@ -69,7 +86,7 @@ def analyze_template(
     source = source_path.read_text()
     ast = env.parse(source)
 
-    variables = meta.find_undeclared_variables(ast)
+    variables = meta.find_undeclared_variables(ast) - _get_imported_names(ast)
     parent_name = _get_parent_template(ast)
     url_for_calls = _extract_url_for_calls(ast)
 
