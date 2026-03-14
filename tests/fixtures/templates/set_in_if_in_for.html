@@ -1,0 +1,6 @@
+{% for role in roles %}
+  {% if role.editable %}
+    {% set x = role.name %}
+    <p>{{ x }}</p>
+  {% endif %}
+{% endfor %}
