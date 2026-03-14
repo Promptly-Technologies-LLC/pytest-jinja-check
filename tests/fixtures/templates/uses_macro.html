@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from 'macros/logo.html' import render_logo %}
+
+{% block content %}
+<h1>{{ heading }}</h1>
+{{ render_logo(width=40, height=40) }}
+{% endblock %}

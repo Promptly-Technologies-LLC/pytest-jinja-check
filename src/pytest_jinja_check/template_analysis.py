@@ -25,6 +25,32 @@ def _get_parent_template(ast: nodes.Template) -> Optional[str]:
     return None
 
 
+def _get_set_variable_names(ast: nodes.Template) -> set[str]:
+    """Extract variable names defined by {% set %} statements."""
+    return {
+        node.target.name
+        for node in ast.find_all(nodes.Assign)
+        if isinstance(node.target, nodes.Name)
+    }
+
+
+def _get_imported_names(ast: nodes.Template) -> set[str]:
+    """Extract names brought into scope by {% from ... import %} statements.
+
+    Handles both plain imports (``import foo``) and aliased imports
+    (``import foo as bar`` — the *local* alias is what matters).
+    """
+    names: set[str] = set()
+    for node in ast.find_all(nodes.FromImport):
+        for entry in node.names:
+            if isinstance(entry, tuple):
+                # aliased: {% from '...' import original as alias %}
+                names.add(entry[1])
+            else:
+                names.add(entry)
+    return names
+
+
 def _extract_url_for_calls(ast: nodes.Template) -> list[tuple[str, int]]:
     """Extract url_for('endpoint') calls from a template AST.
 
@@ -69,14 +95,17 @@ def analyze_template(
     source = source_path.read_text()
     ast = env.parse(source)
 
-    variables = meta.find_undeclared_variables(ast)
+    variables = meta.find_undeclared_variables(ast) - _get_imported_names(ast)
     parent_name = _get_parent_template(ast)
     url_for_calls = _extract_url_for_calls(ast)
 
-    # Merge parent template's variables (inheritance)
+    # Merge parent template's variables (inheritance).
+    # Subtract child's {% set %} names from the parent's variables, since
+    # the child's block overrides replace the parent's default blocks.
     if parent_name:
         parent_info = analyze_template(parent_name, template_dir, env, _seen)
-        variables = variables | parent_info.variables
+        child_set_vars = _get_set_variable_names(ast)
+        variables = variables | (parent_info.variables - child_set_vars)
         url_for_calls = parent_info.url_for_calls + url_for_calls
 
     return TemplateInfo(
