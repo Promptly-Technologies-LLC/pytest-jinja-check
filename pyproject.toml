@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pytest-jinja-check"
-version = "0.1.0"
+version = "1.0.0"
 description = "Pytest plugin to lint Jinja2 templates in FastAPI applications"
 readme = "README.md"
 requires-python = ">=3.10"
