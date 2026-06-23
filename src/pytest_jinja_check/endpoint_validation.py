@@ -36,6 +36,7 @@ def validate_url_for_references(
     template_dir: Path,
     app: "FastAPI",
     ignore_endpoints: set[str] | None = None,
+    templates: dict | None = None,
 ) -> list[LintError]:
     """Check that all url_for() calls in templates reference real endpoints.
 
@@ -48,7 +49,8 @@ def validate_url_for_references(
         ignore_endpoints = set()
 
     registered = get_registered_endpoints(app)
-    templates = analyze_all_templates(template_dir)
+    if templates is None:
+        templates = analyze_all_templates(template_dir)
     errors = []
 
     for name, info in templates.items():

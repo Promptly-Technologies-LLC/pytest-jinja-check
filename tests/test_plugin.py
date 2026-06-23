@@ -1,10 +1,13 @@
 """Tests for the pytest plugin fixtures."""
 
+import shutil
 from pathlib import Path
 
 import pytest
 
 from pytest_jinja_check.config import LinterConfig
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture
@@ -51,3 +54,76 @@ class TestPluginFixtures:
         context_errors = check_context_variables(templates_dir, routes)
         # about route is missing 'title'
         assert any("about" in e.message and "title" in e.message for e in context_errors)
+
+
+def _write_fixture_project(path: Path) -> None:
+    """Copy minimal fixture app/templates into a pytester project directory."""
+    shutil.copytree(FIXTURES_DIR / "templates", path / "templates")
+    shutil.copytree(FIXTURES_DIR / "app", path / "app")
+
+
+class TestAutoCheck:
+    def test_auto_check_fails_session_with_lint_errors(self, pytester):
+        pytester.makepyprojecttoml(
+            """
+            [tool.pytest-jinja-check]
+            template_dir = "templates"
+            python_dir = "app"
+            auto_check = true
+            """
+        )
+        _write_fixture_project(pytester.path)
+        pytester.makeconftest("import sys\nsys.path.insert(0, '.')\n")
+
+        result = pytester.runpytest()
+        assert result.ret != 0
+        output = result.stdout.str() + result.stderr.str()
+        assert "Jinja template lint failed" in output
+        assert "syntax_error" in output
+
+    def test_auto_check_disabled_by_default(self, pytester):
+        pytester.makepyprojecttoml(
+            """
+            [tool.pytest-jinja-check]
+            template_dir = "templates"
+            python_dir = "app"
+            """
+        )
+        _write_fixture_project(pytester.path)
+        pytester.makeconftest("import sys\nsys.path.insert(0, '.')\n")
+        pytester.makepyfile(test_ok="def test_ok(): assert True")
+
+        result = pytester.runpytest()
+        result.assert_outcomes(passed=1)
+
+    def test_jinja_check_flag_enables_lint(self, pytester):
+        pytester.makepyprojecttoml(
+            """
+            [tool.pytest-jinja-check]
+            template_dir = "templates"
+            python_dir = "app"
+            """
+        )
+        _write_fixture_project(pytester.path)
+        pytester.makeconftest("import sys\nsys.path.insert(0, '.')\n")
+
+        result = pytester.runpytest("--jinja-check")
+        assert result.ret != 0
+        output = result.stdout.str() + result.stderr.str()
+        assert "Jinja template lint failed" in output
+
+    def test_no_jinja_check_overrides_auto_check(self, pytester):
+        pytester.makepyprojecttoml(
+            """
+            [tool.pytest-jinja-check]
+            template_dir = "templates"
+            python_dir = "app"
+            auto_check = true
+            """
+        )
+        _write_fixture_project(pytester.path)
+        pytester.makeconftest("import sys\nsys.path.insert(0, '.')\n")
+        pytester.makepyfile(test_ok="def test_ok(): assert True")
+
+        result = pytester.runpytest("--no-jinja-check")
+        result.assert_outcomes(passed=1)

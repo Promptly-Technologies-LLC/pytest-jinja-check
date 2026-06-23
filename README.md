@@ -35,9 +35,29 @@ The plugin auto-registers with pytest via entry points. Add configuration to you
 [tool.pytest-jinja-check]
 template_dir = "templates"
 python_dir = "app"
+auto_check = true
+app = "app.main:app"  # optional — enables url_for() endpoint validation
 ```
 
-Then write tests using the provided fixtures:
+With `auto_check = true`, all lint checks run at session start — no boilerplate tests required:
+
+```bash
+pytest
+```
+
+If lint issues are found, pytest exits before your tests run with a single aggregated report.
+
+You can also enable checks for one run without changing config:
+
+```bash
+pytest --jinja-check
+```
+
+Use `--no-jinja-check` to skip checks when `auto_check` is enabled in config.
+
+### Manual checks with fixtures
+
+If you prefer explicit tests or need to validate against a specific app instance, use the provided fixtures:
 
 ```python
 # tests/test_templates.py
@@ -57,12 +77,6 @@ def test_url_for_endpoints(validate_endpoints):
     from myapp.main import app
     errors = validate_endpoints(app)
     assert not errors, "\n".join(str(e) for e in errors)
-```
-
-Run your tests as usual:
-
-```bash
-pytest
 ```
 
 ## Fixtures
@@ -90,8 +104,16 @@ All settings in `[tool.pytest-jinja-check]` in your `pyproject.toml`:
 | `route_file_patterns` | `["**/*.py"]` | Glob patterns for route files |
 | `ignore_variables` | `["request", "url_for", ...]` | Variables to skip (framework-provided) |
 | `allowed_url_prefixes` | `["#", "http://", ...]` | URL prefixes that aren't hardcoded routes |
+| `auto_check` | `false` | Run all lint checks at pytest session start |
+| `app` | *(none)* | Import string for FastAPI app (e.g. `"app.main:app"`) — enables endpoint validation in auto-check mode |
 
-You can also pass `--template-lint-config <path>` to pytest to specify a different directory containing `pyproject.toml`.
+You can also pass pytest CLI options:
+
+| Flag | Description |
+| --- | --- |
+| `--jinja-check` | Run lint checks for this session (overrides `auto_check = false`) |
+| `--no-jinja-check` | Skip lint checks (overrides `auto_check = true`) |
+| `--template-lint-config <path>` | Directory containing `pyproject.toml` with `[tool.pytest-jinja-check]` config |
 
 ## Programmatic API
 
@@ -105,9 +127,16 @@ from pytest_jinja_check import (
     check_context_variables,
     validate_url_for_references,
     extract_all_route_contexts,
+    run_all_checks,
+    load_config,
 )
 from pathlib import Path
 
+# Run all checks in one call (same as auto-check mode)
+config = load_config(Path("."))
+errors = run_all_checks(config)
+
+# Or run checks individually
 # Analyze templates
 templates = analyze_all_templates(Path("templates"))
 for name, info in templates.items():
