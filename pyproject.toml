@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pytest-jinja-check"
-version = "1.0.2"
+version = "1.1.0"
 description = "Pytest plugin to lint Jinja2 templates in FastAPI applications"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -46,6 +46,7 @@ Issues = "https://github.com/Promptly-Technologies-LLC/pytest-jinja-check/issues
 
 [project.entry-points.pytest11]
 pytest_jinja_check = "pytest_jinja_check.plugin"
+
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pytest_jinja_check"]

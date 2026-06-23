@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.0 (2026-06-23)
+
+### Features
+
+- Add opt-in automatic template lint at pytest session start
+  ([`8dcfda4`](https://github.com/Promptly-Technologies-LLC/pytest-jinja-check/commit/8dcfda41a380c2cd0dc05b563284e1185fac5675))
+
+
 ## v1.0.2 (2026-03-14)
 
 ### Bug Fixes
