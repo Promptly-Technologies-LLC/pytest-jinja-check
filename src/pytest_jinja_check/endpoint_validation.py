@@ -10,14 +10,26 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 
-def get_registered_endpoints(app: "FastAPI") -> set[str]:
-    """Extract all named endpoints from a FastAPI app."""
-    endpoints = set()
-    for route in app.routes:
+def _collect_endpoints_from_routes(routes) -> set[str]:
+    """Recursively collect named endpoints from a route table."""
+    endpoints: set[str] = set()
+    for route in routes:
         name = getattr(route, "name", None)
         if name:
             endpoints.add(name)
+
+        original_router = getattr(route, "original_router", None)
+        if original_router is not None:
+            endpoints |= _collect_endpoints_from_routes(original_router.routes)
+        elif getattr(route, "routes", None):
+            endpoints |= _collect_endpoints_from_routes(route.routes)
+
     return endpoints
+
+
+def get_registered_endpoints(app: "FastAPI") -> set[str]:
+    """Extract all named endpoints from a FastAPI app."""
+    return _collect_endpoints_from_routes(app.routes)
 
 
 def validate_url_for_references(
