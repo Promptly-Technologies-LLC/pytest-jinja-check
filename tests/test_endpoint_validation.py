@@ -33,6 +33,20 @@ class TestGetRegisteredEndpoints:
         assert "home" in endpoints
         assert "about" in endpoints
 
+    def test_finds_included_router_endpoints(self, sample_app):
+        """Starlette 1.x wraps include_router() in _IncludedRouter, not nested .routes."""
+        fastapi = pytest.importorskip("fastapi")
+        router = fastapi.APIRouter()
+
+        @router.get("/items", name="items_list")
+        async def items():
+            pass
+
+        sample_app.include_router(router, prefix="/api")
+
+        endpoints = get_registered_endpoints(sample_app)
+        assert "items_list" in endpoints
+
 
 class TestValidateUrlForReferences:
     def test_detects_invalid_endpoint(self, templates_dir, sample_app):
@@ -56,3 +70,22 @@ class TestValidateUrlForReferences:
             templates_dir, sample_app, ignore_endpoints={"nonexistent"}
         )
         assert not any("nonexistent" in e.message for e in errors)
+
+    def test_accepts_included_router_endpoints(self, sample_app, tmp_path):
+        """url_for() to an included router endpoint should not be flagged invalid."""
+        fastapi = pytest.importorskip("fastapi")
+        router = fastapi.APIRouter()
+
+        @router.get("/items", name="items_list")
+        async def items():
+            pass
+
+        sample_app.include_router(router, prefix="/api")
+
+        template_dir = tmp_path / "templates"
+        template_dir.mkdir()
+        (template_dir / "page.html").write_text('{{ url_for("items_list") }}')
+
+        errors = validate_url_for_references(template_dir, sample_app)
+        invalid = [e for e in errors if e.category == IssueCategory.INVALID_ENDPOINT]
+        assert not any("items_list" in e.message for e in invalid)

@@ -129,7 +129,7 @@ def analyze_all_templates(
     results = {}
 
     for path in sorted(template_dir.rglob("*.html")):
-        name = str(path.relative_to(template_dir))
+        name = path.relative_to(template_dir).as_posix()
         try:
             results[name] = analyze_template(name, template_dir, env)
         except TemplateSyntaxError:
@@ -145,7 +145,7 @@ def check_syntax(template_dir: Path) -> list[LintError]:
     errors = []
 
     for path in sorted(template_dir.rglob("*.html")):
-        name = str(path.relative_to(template_dir))
+        name = path.relative_to(template_dir).as_posix()
         try:
             source = path.read_text()
             env.parse(source)
@@ -188,7 +188,7 @@ def check_hardcoded_routes(
     errors = []
 
     for path in sorted(template_dir.rglob("*.html")):
-        name = str(path.relative_to(template_dir))
+        name = path.relative_to(template_dir).as_posix()
         source = path.read_text()
 
         # Find all Jinja2 expression spans so we can exclude matches inside them
