@@ -38,6 +38,8 @@ class LinterConfig:
     hardcoded_route_ignore_attrs: set = field(
         default_factory=lambda: {"src", "poster", "data"}
     )
+    auto_check: bool = False
+    app: str | None = None
     root: Path = field(default_factory=Path.cwd)
 
 
@@ -72,5 +74,9 @@ def load_config(root: Optional[Path] = None) -> LinterConfig:
         config.hardcoded_route_ignore_attrs = set(
             tool_config["hardcoded_route_ignore_attrs"]
         )
+    if "auto_check" in tool_config:
+        config.auto_check = tool_config["auto_check"]
+    if "app" in tool_config:
+        config.app = tool_config["app"]
 
     return config

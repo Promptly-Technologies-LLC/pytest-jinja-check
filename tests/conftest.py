@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+pytest_plugins = ["pytester"]
+
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 TEMPLATES_DIR = FIXTURES_DIR / "templates"
 APP_DIR = FIXTURES_DIR / "app"

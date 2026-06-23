@@ -10,6 +10,7 @@ def check_context_variables(
     template_dir: Path,
     route_contexts: list[RouteContext],
     ignore_variables: set[str] | None = None,
+    templates: dict[str, TemplateInfo] | None = None,
 ) -> list[LintError]:
     """Check that each TemplateResponse provides all variables the template needs.
 
@@ -21,7 +22,8 @@ def check_context_variables(
     if ignore_variables is None:
         ignore_variables = {"request", "url_for", "get_flashed_messages"}
 
-    templates = analyze_all_templates(template_dir)
+    if templates is None:
+        templates = analyze_all_templates(template_dir)
     errors = []
 
     for route in route_contexts:

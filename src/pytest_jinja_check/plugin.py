@@ -8,8 +8,13 @@ import pytest
 from .config import LinterConfig, load_config
 from .context_validation import check_context_variables
 from .endpoint_validation import validate_url_for_references
+from .lint_runner import format_lint_errors, run_all_checks
 from .route_analysis import extract_all_route_contexts
-from .template_analysis import analyze_all_templates, check_hardcoded_routes, check_syntax
+from .template_analysis import (
+    analyze_all_templates,
+    check_hardcoded_routes,
+    check_syntax,
+)
 
 if TYPE_CHECKING:
     from .models import LintError, RouteContext, TemplateInfo
@@ -20,17 +25,56 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--template-lint-config",
         default=None,
         help="Path to directory containing pyproject.toml with "
-        "[tool.jinja2-template-linter] config",
+        "[tool.pytest-jinja-check] config",
     )
+    parser.addoption(
+        "--jinja-check",
+        action="store_true",
+        default=False,
+        help="Run Jinja template lint checks at session start",
+    )
+    parser.addoption(
+        "--no-jinja-check",
+        action="store_true",
+        default=False,
+        help="Skip Jinja template lint checks even when auto_check is enabled",
+    )
+
+
+def _resolve_linter_config(config: pytest.Config) -> LinterConfig:
+    config_path = config.getoption("--template-lint-config")
+    if config_path:
+        return load_config(Path(config_path))
+    return load_config(Path(config.rootpath))
+
+
+def _is_jinja_check_enabled(config: pytest.Config) -> bool:
+    if config.getoption("--no-jinja-check"):
+        return False
+    if config.getoption("--jinja-check"):
+        return True
+    return _resolve_linter_config(config).auto_check
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    config = session.config
+    if not _is_jinja_check_enabled(config):
+        return
+
+    linter_config = _resolve_linter_config(config)
+    try:
+        errors = run_all_checks(linter_config)
+    except Exception as exc:
+        pytest.exit(f"Jinja template lint failed to run: {exc}", returncode=1)
+
+    if errors:
+        pytest.exit(format_lint_errors(errors), returncode=1)
 
 
 @pytest.fixture(scope="session")
 def template_linter_config(request: pytest.FixtureRequest) -> LinterConfig:
     """Resolved linter configuration from pyproject.toml."""
-    config_path = request.config.getoption("--template-lint-config")
-    if config_path:
-        return load_config(Path(config_path))
-    return load_config(Path(request.config.rootpath))
+    return _resolve_linter_config(request.config)
 
 
 @pytest.fixture(scope="session")
