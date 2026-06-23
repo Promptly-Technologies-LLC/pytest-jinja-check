@@ -36,6 +36,7 @@ fastapi = ["fastapi>=0.100"]
 dev = [
     "fastapi>=0.100",
     "httpx",
+    "pre-commit",
     "ruff",
 ]
 

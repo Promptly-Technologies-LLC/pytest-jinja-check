@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+Always commit and push work on an issue branch.
+
+`gh issue create` -> `gh issue develop <#> --checkout`
+
+Use of conventional commit messages is mandatory, because these inform the release workflow.
